@@ -2,10 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Windows.Data.Xml.Dom;
+using Windows.Networking.BackgroundTransfer;
 using Windows.Storage;
 using Windows.Storage.Pickers;
+using Windows.UI.Notifications;
+using Windows.UI.Popups;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
@@ -27,17 +32,22 @@ namespace MoodleSharp
     {
         private IRestResponse _loginResponse;
         private bool _onNavigatedToCalled = false;
+        private List<CourseListModel> _courseList;
+        private List<CourseContentModel> _courseContent;
+        private Dictionary<string, string> _courseDictionary;
+        private Dictionary<string, string> _downloadUrlDictionary;
 
         public MainPage()
         {
             this.InitializeComponent();
             Loaded += MainPage_Loaded;
+            _courseList = new List<CourseListModel>();
+            _courseContent = new List<CourseContentModel>();
         }
 
         private static async void DownloadAllFilesLocal(Dictionary<string, string> downloadList, IRestResponse loginResponse)
         {
-            FolderPicker picker = new FolderPicker();
-            picker.ViewMode = PickerViewMode.List;
+            FolderPicker picker = new FolderPicker { ViewMode = PickerViewMode.List };
             picker.FileTypeFilter.Add("*");
             StorageFolder folder = await picker.PickSingleFolderAsync();
 
@@ -55,18 +65,28 @@ namespace MoodleSharp
                 webRequest.CookieContainer = new CookieContainer();
                 webRequest.CookieContainer.Add(new Uri("https://courses.iitm.ac.in", UriKind.Absolute),
                     new Cookie(loginResponse.Cookies.First().Name, loginResponse.Cookies.First().Value));
-                webRequest.Method = "GET";
-                WebResponse webResponse = await webRequest.GetResponseAsync();
+                webRequest.Method = "HEAD";
+                using (WebResponse webResponse = await webRequest.GetResponseAsync())
+                {
+                    Uri uri = webResponse.ResponseUri;
+                    var tempFilePath = uri.Segments.Last();
+                    tempFilePath = Uri.UnescapeDataString(tempFilePath);
 
-                Uri uri = webResponse.ResponseUri;
-                var tempFilePath = uri.Segments.Last();
-                tempFilePath = Uri.UnescapeDataString(tempFilePath);
+                    StorageFile storageFile =
+                        await folder.CreateFileAsync(tempFilePath, CreationCollisionOption.ReplaceExisting);
 
-                HttpClient httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Cookie.Add(new HttpCookiePairHeaderValue(loginResponse.Cookies.First().Name, loginResponse.Cookies.First().Value));
-                HttpResponseMessage fileResponse = await httpClient.GetAsync(uri);
+                    BackgroundDownloader backgroundDownloader = new BackgroundDownloader { Method = "GET" };
+                    backgroundDownloader.SetRequestHeader("Cookie",
+                        loginResponse.Cookies.First().Name + "=" + loginResponse.Cookies.First().Value);
+                    backgroundDownloader.CostPolicy = BackgroundTransferCostPolicy.Always;
+                    DownloadOperation downloadOperation = backgroundDownloader.CreateDownload(uri, storageFile);
+                    await downloadOperation.StartAsync();
+                }
+                //HttpClient httpClient = new HttpClient();
+                //httpClient.DefaultRequestHeaders.Cookie.Add(new HttpCookiePairHeaderValue(loginResponse.Cookies.First().Name, loginResponse.Cookies.First().Value));
+                //HttpResponseMessage fileResponse = await httpClient.GetAsync(uri);
 
-                await new Utils().SaveFileToStorage(folder, tempFilePath, fileResponse.Content);
+                //await new Utils().SaveFileToStorage(folder, tempFilePath, fileResponse.Content);
             }
         }
 
@@ -82,11 +102,15 @@ namespace MoodleSharp
             IHtmlDocument primaryParsed = await new HtmlParser(httpContent).ParseAsync();
             IEnumerable<IElement> primaryParsedResult = primaryParsed.QuerySelectorAll("div")
                 .Where(x => x.ClassName == "activityinstance");
+            _courseContent.Clear();
 
             foreach (IElement element in primaryParsedResult)
             {
-                if (!urlList.ContainsKey(Regex.Replace(element.Children.First().InnerHtml, "<.*?>", String.Empty)))
-                    urlList.Add(Regex.Replace(element.Children.First().InnerHtml, "<.*?>", String.Empty), element.Children.First().GetAttribute("href"));
+                if (!urlList.ContainsKey(Regex.Replace(element.Children.First().InnerHtml, "<.*?>", String.Empty).Replace(" File", "")))
+                {
+                    _courseContent.Add(new CourseContentModel() { FileName = Regex.Replace(element.Children.First().InnerHtml, "<.*?>", String.Empty).Replace(" File", ""), UriString = element.Children.First().GetAttribute("href") });
+                    urlList.Add(Regex.Replace(element.Children.First().InnerHtml, "<.*?>", String.Empty).Replace(" File", ""), element.Children.First().GetAttribute("href"));
+                }
             }
 
             return urlList;
@@ -106,7 +130,10 @@ namespace MoodleSharp
             foreach (IElement element in courseCollection)
             {
                 if (!courseList.ContainsKey(element.Children.First().InnerHtml))
+                {
+                    _courseList.Add(new CourseListModel() { CourseName = element.Children.First().InnerHtml });
                     courseList.Add(element.Children.First().InnerHtml, element.Children.First().GetAttribute("href"));
+                }
             }
 
             return courseList;
@@ -134,10 +161,42 @@ namespace MoodleSharp
             if (_loginResponse != null)
             {
                 HtmlParser htmlParser = new HtmlParser(Utils.GenerateStreamFromString(_loginResponse.Content));
-                Dictionary<string, string> courseDictionary = await ParseCourses(htmlParser);
-                Dictionary<string, string> downloadUrlDictionary = await GetDownloadUrl(_loginResponse, courseDictionary, 4);
-                DownloadAllFilesLocal(downloadUrlDictionary, _loginResponse);
+                _courseDictionary = await ParseCourses(htmlParser);
+                _downloadUrlDictionary = await GetDownloadUrl(_loginResponse, _courseDictionary, 0);
+                CourseView.ItemsSource = _courseList;
+                ContentView.ItemsSource = _courseContent;
+                //DownloadAllFilesLocal(_downloadUrlDictionary, _loginResponse);
             }
+        }
+
+        private async void DownloadButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            if (ContentView.SelectedItems.Count <= 0)
+            {
+                MessageDialog messageDialog = new MessageDialog("Please select one or more items to download", "No files selected");
+                await messageDialog.ShowAsync();
+                return;
+            }
+            Dictionary<string, string> dictionary = ContentView.SelectedItems.Cast<CourseContentModel>().ToDictionary(contentModel => contentModel.FileName, contentModel => contentModel.UriString);
+            DownloadAllFilesLocal(dictionary, _loginResponse);
+            MessageDialog completeDialog = new MessageDialog("All your files have been downloaded.", "Complete!");
+            await completeDialog.ShowAsync();
+        }
+
+        private async void DownloadAllButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            DownloadAllFilesLocal(_downloadUrlDictionary, _loginResponse);
+            MessageDialog completeDialog = new MessageDialog("All your files have been downloaded.", "Complete!");
+            await completeDialog.ShowAsync();
+        }
+
+        private async void CourseView_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (CourseView.SelectedIndex < 0)
+                return;
+            _downloadUrlDictionary = await GetDownloadUrl(_loginResponse, _courseDictionary, CourseView.SelectedIndex);
+            ContentView.ItemsSource = null;
+            ContentView.ItemsSource = _courseContent;
         }
     }
 }

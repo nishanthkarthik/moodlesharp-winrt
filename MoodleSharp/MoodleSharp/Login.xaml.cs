@@ -30,7 +30,7 @@ namespace MoodleSharp
                 {
                     Options = MessageDialogOptions.AcceptUserInputAfterDelay
                 };
-                messageDialog.ShowAsync();
+                await messageDialog.ShowAsync();
                 return;
             }
             ProgressRing.IsActive = true;
@@ -43,7 +43,7 @@ namespace MoodleSharp
                     Options = MessageDialogOptions.AcceptUserInputAfterDelay
                 };
                
-                messageDialog.ShowAsync();
+               await messageDialog.ShowAsync();
                 return;
             }
             Frame.Navigate(typeof(MainPage), response);

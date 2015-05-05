@@ -5,13 +5,46 @@
     xmlns:local="using:MoodleSharp"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:controls="using:Callisto.Controls"
     mc:Ignorable="d">
 
-   
+    <Page.Resources>
+        <Style TargetType="TextBlock" x:Key="HelperBlockKey">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontFamily" Value="Segoe UI Light"/>
+            <Setter Property="Height" Value="Auto"/>
+            <Setter Property="Margin" Value="5"/>
+        </Style>
+    </Page.Resources>
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-       
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="Courses" Margin="20" Style="{StaticResource HeaderTextBlockStyle}" VerticalAlignment="Center" Grid.Column="0" Grid.Row="0"/>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Grid.Column="1" Grid.Row="0">
+            <TextBlock Text="Files" Margin="20" Style="{StaticResource HeaderTextBlockStyle}"/>
+            <Button Content="Download" Margin="40,10,10,10" Height="60" Click="DownloadButton_OnClick"/>
+            <Button Content="Download All" Margin="10" Height="60" Click="DownloadAllButton_OnClick"/>
+        </StackPanel>
+        <ListView x:Name="CourseView" Grid.Column="0" Grid.Row="1" Margin="10" SelectionChanged="CourseView_OnSelectionChanged">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding CourseName}" Style="{StaticResource HelperBlockKey}"/>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+        <ListView SelectionMode="Multiple" x:Name="ContentView" Grid.Column="1" Grid.Row="1" Margin="10">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding FileName}" FontSize="20" Style="{StaticResource HelperBlockKey}"/>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
     </Grid>
-
 </Page>
