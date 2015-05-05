@@ -2,14 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Windows.Data.Xml.Dom;
 using Windows.Networking.BackgroundTransfer;
 using Windows.Storage;
 using Windows.Storage.Pickers;
-using Windows.UI.Notifications;
 using Windows.UI.Popups;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -45,7 +42,7 @@ namespace MoodleSharp
             _courseContent = new List<CourseContentModel>();
         }
 
-        private static async void DownloadAllFilesLocal(Dictionary<string, string> downloadList, IRestResponse loginResponse)
+        private static async Task DownloadAllFilesLocal(Dictionary<string, string> downloadList, IRestResponse loginResponse)
         {
             FolderPicker picker = new FolderPicker { ViewMode = PickerViewMode.List };
             picker.FileTypeFilter.Add("*");
@@ -178,14 +175,14 @@ namespace MoodleSharp
                 return;
             }
             Dictionary<string, string> dictionary = ContentView.SelectedItems.Cast<CourseContentModel>().ToDictionary(contentModel => contentModel.FileName, contentModel => contentModel.UriString);
-            DownloadAllFilesLocal(dictionary, _loginResponse);
+            await DownloadAllFilesLocal(dictionary, _loginResponse);
             MessageDialog completeDialog = new MessageDialog("All your files have been downloaded.", "Complete!");
             await completeDialog.ShowAsync();
         }
 
         private async void DownloadAllButton_OnClick(object sender, RoutedEventArgs e)
         {
-            DownloadAllFilesLocal(_downloadUrlDictionary, _loginResponse);
+            await DownloadAllFilesLocal(_downloadUrlDictionary, _loginResponse);
             MessageDialog completeDialog = new MessageDialog("All your files have been downloaded.", "Complete!");
             await completeDialog.ShowAsync();
         }
