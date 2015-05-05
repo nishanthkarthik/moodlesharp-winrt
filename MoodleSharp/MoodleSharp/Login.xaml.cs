@@ -1,22 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Net;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
-using Windows.Management.Core;
+using Windows.System;
 using Windows.UI.Popups;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
-using Windows.UI.Xaml.Navigation;
-using MoodleSharp.UI;
 using RestSharp;
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=234238
@@ -44,21 +33,19 @@ namespace MoodleSharp
                 messageDialog.ShowAsync();
                 return;
             }
-            BusyIndicator busyIndicator = new BusyIndicator(Dictionary.LoggingIn);
-            busyIndicator.Start(Dictionary.LoggingIn);
+            ProgressRing.IsActive = true;
             IRestResponse response = await LoginToMoodle(RollBox.Text, PasswordBox.Password);
+            ProgressRing.IsActive = false;
             if (response.Content.Contains(Dictionary.InvalidLoginIdentifier))
             {
                 MessageDialog messageDialog = new MessageDialog(Dictionary.LoginFailed, Dictionary.LoginFailedTitle)
                 {
                     Options = MessageDialogOptions.AcceptUserInputAfterDelay
                 };
-                busyIndicator.Close();
+               
                 messageDialog.ShowAsync();
                 return;
             }
-            busyIndicator.TitleText = Dictionary.LoggedIn;
-            busyIndicator.Close();
             Frame.Navigate(typeof(MainPage), response);
         }
 
@@ -75,6 +62,12 @@ namespace MoodleSharp
             string[] parsedStrings = xCookie.Split('=');
             response.Cookies.Add(new RestResponseCookie() { Name = parsedStrings[0], Value = parsedStrings[1] });
             return response;
+        }
+
+        private void PasswordBox_OnKeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            if (e.Key == VirtualKey.Enter)
+                LoginButton_OnClick(LoginButton,new RoutedEventArgs());
         }
     }
 }

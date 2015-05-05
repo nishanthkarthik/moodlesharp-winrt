@@ -1,18 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
+using System.Diagnostics;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
+using Windows.Globalization;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 
 // The Blank Application template is documented at http://go.microsoft.com/fwlink/?LinkId=234227
@@ -43,7 +35,7 @@ namespace MoodleSharp
         {
 
 #if DEBUG
-            if (System.Diagnostics.Debugger.IsAttached)
+            if (Debugger.IsAttached)
             {
                 this.DebugSettings.EnableFrameRateCounter = true;
             }
@@ -56,7 +48,7 @@ namespace MoodleSharp
             if (rootFrame == null)
             {
                 // Create a Frame to act as the navigation context and navigate to the first page
-                rootFrame = new Frame {Language = Windows.Globalization.ApplicationLanguages.Languages[0]};
+                rootFrame = new Frame {Language = ApplicationLanguages.Languages[0]};
                 // Set the default language
 
                 rootFrame.NavigationFailed += OnNavigationFailed;
