@@ -30,21 +30,13 @@ namespace MoodleSharp
             return file;
         }
 
-        public async static void SaveFileToStorage(StorageFolder folder, string fileName, IHttpContent content)
+        public async Task SaveFileToStorage(StorageFolder folder, string fileName, IHttpContent content)
         {
             StorageFile file = await folder.CreateFileAsync(fileName, CreationCollisionOption.ReplaceExisting);
             IBuffer buffer = await content.ReadAsBufferAsync();
-            Stream fStream = buffer.AsStream();
             using (var ostream = await file.OpenStreamForWriteAsync())
             {
-                int count = 0;
-                do
-                {
-                    var tempBuffer = new byte[1024];
-                    count = fStream.Read(tempBuffer, 0, 1024);
-                    await ostream.WriteAsync(tempBuffer, 0, count);
-                }
-                while (fStream.CanRead && count > 0);
+                ostream.Write(buffer.ToArray(), 0, buffer.ToArray().Length);
             }
         }
 

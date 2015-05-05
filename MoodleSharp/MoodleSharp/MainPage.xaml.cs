@@ -50,9 +50,10 @@ namespace MoodleSharp
                 //request.CookieContainer.Add(new Uri("https://courses.iitm.ac.in", UriKind.Absolute), new Cookie(loginResponse.Cookies.First().Name, loginResponse.Cookies.First().Value));
                 //IRestResponse response = await client.ExecuteAsync(request);
 
-                HttpWebRequest webRequest = WebRequest.CreateHttp(keyValuePair.Value);
+                var webRequest = WebRequest.CreateHttp(keyValuePair.Value);
+                webRequest.Proxy = null;
                 webRequest.CookieContainer = new CookieContainer();
-                webRequest.CookieContainer.Add(new Uri("https://courses.iitm.ac.in", UriKind.Absolute), 
+                webRequest.CookieContainer.Add(new Uri("https://courses.iitm.ac.in", UriKind.Absolute),
                     new Cookie(loginResponse.Cookies.First().Name, loginResponse.Cookies.First().Value));
                 webRequest.Method = "GET";
                 WebResponse webResponse = await webRequest.GetResponseAsync();
@@ -65,7 +66,7 @@ namespace MoodleSharp
                 httpClient.DefaultRequestHeaders.Cookie.Add(new HttpCookiePairHeaderValue(loginResponse.Cookies.First().Name, loginResponse.Cookies.First().Value));
                 HttpResponseMessage fileResponse = await httpClient.GetAsync(uri);
 
-                Utils.SaveFileToStorage(folder, tempFilePath, fileResponse.Content);
+                await new Utils().SaveFileToStorage(folder, tempFilePath, fileResponse.Content);
             }
         }
 
@@ -111,11 +112,11 @@ namespace MoodleSharp
             return courseList;
         }
 
-        protected async override void OnNavigatedTo(NavigationEventArgs e)
+        protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             if (ReferenceEquals(e.Parameter, ""))
                 return;
-            _loginResponse = (IRestResponse) e.Parameter;
+            _loginResponse = (IRestResponse)e.Parameter;
         }
 
         async void MainPage_Loaded(object sender, RoutedEventArgs e)
@@ -134,7 +135,7 @@ namespace MoodleSharp
             {
                 HtmlParser htmlParser = new HtmlParser(Utils.GenerateStreamFromString(_loginResponse.Content));
                 Dictionary<string, string> courseDictionary = await ParseCourses(htmlParser);
-                Dictionary<string, string> downloadUrlDictionary = await GetDownloadUrl(_loginResponse, courseDictionary, 0);
+                Dictionary<string, string> downloadUrlDictionary = await GetDownloadUrl(_loginResponse, courseDictionary, 4);
                 DownloadAllFilesLocal(downloadUrlDictionary, _loginResponse);
             }
         }
