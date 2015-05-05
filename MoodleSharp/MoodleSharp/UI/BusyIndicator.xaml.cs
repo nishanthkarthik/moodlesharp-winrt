@@ -51,8 +51,9 @@ namespace MoodleSharp.UI
         /// </summary> 
         public void Close()
         {
-            // Close the parent; closes the dialog too. 
-            ((Popup)Parent).IsOpen = false;
+            if (Parent != null)
+                // Close the parent; closes the dialog too. 
+                ((Popup)Parent).IsOpen = false;
         }
 
         #endregion Public Methods
@@ -97,5 +98,5 @@ namespace MoodleSharp.UI
         }
 
         #endregion Public Static Methods
-    } 
+    }
 }

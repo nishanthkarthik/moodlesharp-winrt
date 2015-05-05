@@ -1,28 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Runtime.InteropServices.WindowsRuntime;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
+using System.Threading.Tasks;
 using Windows.Storage;
 using Windows.Storage.Pickers;
-using Windows.UI.Popups;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+using Windows.Web.Http;
 using Windows.Web.Http.Headers;
-using HtmlAgilityPack;
-using Microsoft.VisualBasic.CompilerServices;
+using AngleSharp;
+using AngleSharp.Dom;
+using AngleSharp.Dom.Html;
+using AngleSharp.Linq;
+using AngleSharp.Parser.Html;
 using RestSharp;
-using HttpClient = Windows.Web.Http.HttpClient;
-using HttpResponseMessage = Windows.Web.Http.HttpResponseMessage;
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=234238
 
@@ -62,44 +54,58 @@ namespace MoodleSharp
                 HttpResponseMessage fileResponse = await httpClient.GetAsync(uri);
 
                 Utils.SaveFileToStorage(folder, tempFilePath, fileResponse.Content);
-            }   
-        }
-
-        private static Dictionary<string, string> GetDownloadUrl(IRestResponse loginResponse, Dictionary<string, string> courseDictionary, int courseKeyValuePairIndex)
-        {
-            Dictionary<string, string> urlList = new Dictionary<string, string>();
-            RestClient client = new RestClient(courseDictionary.ElementAt(courseKeyValuePairIndex).Value);
-            RestRequest request = new RestRequest(Method.GET);
-            request.AddCookie(loginResponse.Cookies[0].Name, loginResponse.Cookies[0].Value);
-            IRestResponse response = client.ExecuteAsync(request);
-            HtmlDocument document = new HtmlDocument();
-            document.Load(Utils.GenerateStreamFromString(response.Content));
-            foreach (HtmlNode htmlNode in document.DocumentNode.SelectNodes(Reference.CourseContentParseXpath))
-            {
-                if (!urlList.ContainsKey(htmlNode.InnerText))
-                    urlList.Add(htmlNode.InnerText, htmlNode.ChildNodes[0].GetAttributeValue("href", ""));
             }
-            return urlList;
         }
 
-        private static Dictionary<string, string> ParseCourses(HtmlDocument htmlDocument)
+        //private async Dictionary<string, string> GetDownloadUrl(IRestResponse loginResponse, Dictionary<string, string> courseDictionary, int courseKeyValuePairIndex)
+        //{
+        //    Dictionary<string, string> urlList = new Dictionary<string, string>();
+        //    RestClient client = new RestClient(courseDictionary.ElementAt(courseKeyValuePairIndex).Value);
+        //    RestRequest request = new RestRequest(Method.GET);
+        //    request.AddCookie(loginResponse.Cookies[0].Name, loginResponse.Cookies[0].Value);
+        //    IRestResponse response = await client.ExecuteAsync(request);
+        //    HtmlDocument document = new HtmlDocument();
+        //    document.Load(Utils.GenerateStreamFromString(response.Content));
+        //    foreach (HtmlNode htmlNode in document.DocumentNode.Descendants()
+        //    {
+        //        if (!urlList.ContainsKey(htmlNode.InnerText))
+        //            urlList.Add(htmlNode.InnerText, htmlNode.ChildNodes[0].GetAttributeValue("href", ""));
+        //    }
+        //    return urlList;
+        //}
+
+        private async Task<Dictionary<string, string>> ParseCourses(HtmlParser htmlDocument)
         {
             Dictionary<string, string> courseList = new Dictionary<string, string>();
-            HtmlNodeCollection registeredCoursesCollection = htmlDocument.DocumentNode.SelectNodes(Reference.EnrolledCourseXPath);
-            HtmlDocument document = new HtmlDocument();
-            document.Load(Utils.GenerateStreamFromString(registeredCoursesCollection[0].InnerHtml));
-            foreach (HtmlNode htmlNode in document.DocumentNode.SelectNodes(Reference.CourseXPath))
+            
+            IHtmlDocument parsedHtml = await htmlDocument.ParseAsync();
+            var registeredCoursesCollection =
+                parsedHtml.QuerySelectorAll("div").Where(x => x.ClassName == "courses frontpage-course-list-enrolled");
+
+            var courseParser = await new HtmlParser(registeredCoursesCollection.First().InnerHtml).ParseAsync();
+            IEnumerable<IElement> courseCollection = courseParser.QuerySelectorAll("h3").Where(x => x.ClassName == "coursename");
+
+            foreach (IElement element in courseCollection)
             {
-                if (!courseList.ContainsKey(htmlNode.InnerText))
-                    courseList.Add(htmlNode.InnerText, htmlNode.ChildNodes[0].GetAttributeValue("href", ""));
+                if (!courseList.ContainsKey(element.Children.First().InnerHtml))
+                    courseList.Add(element.Children.First().InnerHtml, element.Children.First().GetAttribute("href"));
             }
+
             return courseList;
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
+            if (ReferenceEquals(e.Parameter, ""))
+                return;
             _loginResponse = (IRestResponse)e.Parameter;
+            StartContentList();
+        }
 
+        private async void StartContentList()
+        {
+            HtmlParser htmlParser = new HtmlParser(Utils.GenerateStreamFromString(_loginResponse.Content));
+            Dictionary<string, string> courseDictionary = await ParseCourses(htmlParser);
         }
 
         void MainPage_Loaded(object sender, RoutedEventArgs e)

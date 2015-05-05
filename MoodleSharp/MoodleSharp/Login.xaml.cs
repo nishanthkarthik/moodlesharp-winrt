@@ -35,17 +35,17 @@ namespace MoodleSharp
 
         private async void LoginButton_OnClick(object sender, RoutedEventArgs e)
         {
-            BusyIndicator busyIndicator = new BusyIndicator(Dictionary.LoggingIn);
-            busyIndicator.Start(Dictionary.LoggingIn);
             if (String.IsNullOrEmpty(RollBox.Text) || String.IsNullOrEmpty(PasswordBox.Password))
             {
-                MessageDialog messageDialog = new MessageDialog(Dictionary.LoginFieldEmpty,Dictionary.LoginFieldEmptyTitle)
+                MessageDialog messageDialog = new MessageDialog(Dictionary.LoginFieldEmpty, Dictionary.LoginFieldEmptyTitle)
                 {
                     Options = MessageDialogOptions.AcceptUserInputAfterDelay
                 };
                 messageDialog.ShowAsync();
                 return;
             }
+            BusyIndicator busyIndicator = new BusyIndicator(Dictionary.LoggingIn);
+            busyIndicator.Start(Dictionary.LoggingIn);
             IRestResponse response = await LoginToMoodle(RollBox.Text, PasswordBox.Password);
             if (response.Content.Contains(Dictionary.InvalidLoginIdentifier))
             {
@@ -53,11 +53,13 @@ namespace MoodleSharp
                 {
                     Options = MessageDialogOptions.AcceptUserInputAfterDelay
                 };
+                busyIndicator.Close();
                 messageDialog.ShowAsync();
                 return;
             }
             busyIndicator.TitleText = Dictionary.LoggedIn;
-            Frame.Navigate(typeof (MainPage), response);
+            busyIndicator.Close();
+            Frame.Navigate(typeof(MainPage), response);
         }
 
         private async Task<IRestResponse> LoginToMoodle(string userName, string password)
